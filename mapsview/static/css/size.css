@@ -6,6 +6,10 @@
     margin-top: 10px;
 }
 
+.mar-bot-10 {
+    margin-bottom: 10px;
+}
+
 .pad-right-0 {
     padding-right: 0;
 }
@@ -14,6 +18,30 @@
     padding-right: 15px !important;
 }
 
+.pad-left-0 {
+    padding-left: 0;
+}
+
+.pad-left-10 {
+    padding-left: 10px;
+}
+
+.pad-top-8 {
+    padding: 8px 0 0 0;
+}
+
+.pad-0 {
+    padding: 0;
+}
+
 .wid100 {
     width: 100%;
+}
+
+.wid25 {
+    width: 25%;
+}
+
+.wid15 {
+    width: 14%;
 }
