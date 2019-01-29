@@ -1,12 +1,15 @@
 from django.shortcuts import render
 from django.utils import timezone
 from django.http import HttpResponseRedirect, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.views.generic import TemplateView
 import json
 from . import models as m
 
 # Create your views here.
 
-def post_list(request):
+def map_list(request):
     query = request.GET.get('q')
     field = request.GET.get('field')
     # print(request.is_ajax())
@@ -21,12 +24,35 @@ def post_list(request):
     if request.is_ajax():
         return HttpResponse(json_list, content_type='application/json; charset=utf-8')
     else:
-        return render(request, 'post_list.html', {'list': json_list})
+        return render(request, 'map_list.html', {'list': json_list})
 
 def sub_type_list(request):
+    query = request.GET.get('q')
     subTypeList = []
 
-    for _type in m.sub_type_list() :
+    for _type in m.sub_type_list(query) :
         subTypeList.append(_type['_source'])
         
     return HttpResponse(json.dumps(subTypeList), content_type='application/json; charset=utf-8')
+
+@csrf_exempt
+@require_POST
+def enroll_map(request):
+    if request.method == 'POST':
+        body = json.loads(request.body)
+        result = m.es_request_insert(body)
+        return HttpResponse(json.dumps(result), content_type='application/json; charset=utf-8')
+
+def map_detail(request, id):
+    
+    result = m.es_search_by_id(id)
+    return render(request, 'mapviews/map_detail.html', {'info': result, 'info2': json.dumps(result)})
+
+@csrf_exempt
+@require_POST
+def modify_map(request):
+    if request.method == 'POST':
+        body = json.loads(request.body)
+        result = m.es_update(body)
+        return HttpResponse(json.dumps(result), content_type='application/json; charset=utf-8')
+    

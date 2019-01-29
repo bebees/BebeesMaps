@@ -5,6 +5,8 @@ import elasticsearch
 from elasticsearch import helpers
 import urllib
 import json as simplejson
+import csv
+from datetime import datetime
 
 googleGeocodeUrl = 'https://maps.googleapis.com/maps/api/geocode/json?'
 es_client = elasticsearch.Elasticsearch("http://127.0.0.1:9200")
@@ -16,11 +18,12 @@ def list():
                             doc_type = 'doc',
                             body = {
                                 'size': 100,
+                                'sort': {'ID': 'asc'}
                             })
     
     matList = data['hits']['hits']
 
-    return data
+    return matList
 
 def searchById(search_id):
     # print(field)
@@ -82,58 +85,65 @@ def es_update(lists):
     es_client = elasticsearch.Elasticsearch("http://127.0.0.1:9200")
     
     for one in lists :
-        updata = es_client.update(
+        addr = one['_source']['RN_ADDR']
+        latlng = get_coordinates(addr)
+        up_data = es_client.update(
             index = 'matzip',
             doc_type = 'doc',
-            id = one['_id'],
+            id = int(one['_source']['ID']),
             body = {
                 'doc': {
                     'ID': int(one['_source']['ID']), 
+                    'NAME': one['_source']['NAME'], 
+                    'RN_ADDR': addr, 
+                    'LB_ADDR': one['_source']['LB_ADDR'], 
+                    'DETAIL_ADDR': one['_source']['DETAIL_ADDR'],
                     'TEL': one['_source']['TEL'], 
-                    'DETAIL_ADDR': one['_source']['DETAIL_ADDR'], 
-                    'RN_ADDR': one['_source']['RN_ADDR'], 
+                    'OFF_DAY': one['_source']['OFF_DAY'], 
                     'PARKING': one['_source']['PARKING'],
                     'DESC': one['_source']['DESC'], 
-                    'NAME': one['_source']['NAME'], 
-                    'BREAK': one['_source']['BREAK'], 
                     'TYPE': one['_source']['TYPE'], 
-                    'FROM-TO': one['_source']['FROM-TO'], 
+                    'BREAK_FROM': one['_source']['BREAK_FROM'], 
+                    'BREAK_TO': one['_source']['BREAK_TO'], 
+                    'SALES_FROM': one['_source']['SALES_FROM'], 
+                    'SALES_TO': one['_source']['SALES_TO'], 
                     'SUB_TYPE': one['_source']['SUB_TYPE'], 
-                    'LB_ADDR': one['_source']['LB_ADDR'], 
-                    'OFF_DAY': ['SUN', 'MON(2,4)'], 
-                    'TRY': one['_source']['TRY'], 
-                    'lng': one['_source']['lng'], 
-                    'lat': one['_source']['lat'],
-                    'tag': []
+                    'TRY': one['_source']['TRY'],
+                    'TAG': one['_source']['TAG'],
+                    'lat': latlng[0],
+                    'lng': latlng[1]
                 }
             }
         )
 
-        print(updata)
+        print(up_data)
 
 def es_insert():
     es_client = elasticsearch.Elasticsearch("http://127.0.0.1:9200")
-    addr = '경남 진주시 촉석로 165'
+    addr = '서울 강동구 구천면로 221'
     latLng = get_coordinates(addr)
     source = {
-                'ID': es_last_index()+1, 
-                'NAME': '원깐돌이', 
+                'ID': 56, 
+                'NAME': '광주횟집', 
                 'RN_ADDR': addr, 
-                'LB_ADDR': '중안동 101', 
+                'LB_ADDR': '천호동 402-8', 
                 'DETAIL_ADDR': None, 
-                'TEL': '055-742-3937', 
-                'PARKING': 'FALSE',
-                'OFF_DAY': ['SUN'], 
-                'FROM-TO': '10:00 ~ 17:00',
-                'BREAK': None,
+                'TEL': '02-476-5007', 
+                'OFF_DAY': None, 
+                'SALES_FROM': None,
+                'SALES_TO': None,
+                'BREAK_FROM': None,
+                'BREAK_TO': None,
+                'PARKING': 'TRUE',
                 'TYPE': 'M',
-                'SUB_TYPE': 'K', 
+                'SUB_TYPE': 'K',
+                'DESC': '이렇게 두꺼운 회는 처음봄',
                 'TRY': 'TRUE',
-                'DESC': '사실은 국수맛집, 육회비빔밥도, 알쓸신잡 진주편 수다장소',
+                'TAG': ['회', '두꺼움'],
                 'lat': latLng[0],
                 'lng': latLng[1]
             }
-    # print(latLng[0], latLng[1])
+    
     docs = []
     for cnt in range(1):
         docs.append({
@@ -178,7 +188,8 @@ def es_last_index():
 
 def bulk_to_json_file() :
     es_client = elasticsearch.Elasticsearch("http://127.0.0.1:9200")
-    MyFile= open("C:\\Users\\Hanui\\Programing\\elasticsearch-6.4.3\\sub_type.json", 'r', encoding='UTF8').read()
+    
+    MyFile= open("C:\\Users\\gksml\\Programing\\git\BebeeMaps\\mapsview\\static\\json\sub_type_db.json", 'r', encoding='UTF8').read()
     ClearData = MyFile.splitlines(True)
     i=0
     json_str=""
@@ -191,10 +202,55 @@ def bulk_to_json_file() :
             docs[i]=json_str+"}"
             json_str=""
             print(docs[i])
-            es_client.index(index='sub_type', doc_type='doc', id=i+1, body=docs[i])
+            es_client.index(index='subtype', doc_type='doc', id=i+1, body=docs[i])
             i=i+1
+
+def elastic_to_csv() :
+    es = elasticsearch.Elasticsearch("http://127.0.0.1:9200")
+    data = es.search(
+            index="matzip",
+            body={
+                "query" : {
+                    "match_all" : {
+                    }
+                },
+                'size': 100,
+                'sort': {'ID': 'asc'}
+            }
+        )
+
+    csv_columns = [
+        "ID", "NAME",
+        "RN_ADDR", "LB_ADDR","DETAIL_ADDR",
+        "TEL","OFF_DAY",
+        "SALES_FROM","SALES_TO",
+        "BREAK_FROM","BREAK_TO",
+        "PARKING", "DESC", 
+        "TYPE", "SUB_TYPE", 
+        "TRY", "TAG",
+        'lng', 'lat',
+        'path', '@version', 'message', 'host', '@timestamp'
+    ]
+    
+    csv_file = '/Users/gksml/Programing/git/BebeeMaps/mapsview/static/csv/log_matzip_'+str(datetime.today().strftime("%Y%m%d_%H%M%S"))+'.csv'
+
+    with open(csv_file, 'w', newline='', encoding='UTF8') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+        writer.writeheader()
+        for document in [x['_source'] for x in data['hits']['hits']]:
+            writer.writerow(document)
 
 if __name__ == '__main__':    # 프로그램의 시작점일 때만 아래 코드 실행
     # print(list())
-    bulk_to_json_file()
-    # es_update(searchById("Us7RD2cBZ4ljROrfRJ0b"))
+    
+    # 데이터 추가 
+    # es_insert()
+    
+    # json파일 엘라스틱서치에 밀어 넣기
+    # bulk_to_json_file()
+    
+    # 데이터 완전 새로 올린 후 위경도 및 태그 프로퍼티 추가
+    # es_update(list())
+
+    elastic_to_csv()
+    
